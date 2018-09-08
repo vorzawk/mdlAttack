@@ -157,7 +157,7 @@ train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 
 # Create a dataset iterator to input the data to the model in batches
 BATCH_SIZE = 128
-num_epochs = 3
+num_epochs = 5
 dataset = tf.data.Dataset.from_tensor_slices((new_train_images, new_train_labels)).batch(BATCH_SIZE).repeat(num_epochs)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()

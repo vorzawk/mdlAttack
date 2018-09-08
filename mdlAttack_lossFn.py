@@ -58,8 +58,6 @@ import numpy as np
 
 
 saver = tf.train.import_meta_graph('trained_model.meta')
-type(saver)
-
 
 # In[6]:
 
@@ -115,7 +113,7 @@ mseWout = compute_mse(orig_Wout, Wout)
 mseWout_p = tf.Print(mseWout, [mseWout], 'mseWout: ')
 cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = 1 * cross_entropy_p + 1e5 * mseWconv1_p + 5e5 * mseWconv2_p + 1e5 * mseWdense_p + 1e5 * mseWout_p
+loss = 1 * cross_entropy_p + 5e4 * mseWconv1_p + 5e5 * mseWconv2_p + 5e6 * mseWdense_p + 3e5 * mseWout_p
 adv_train_step = tf.train.AdamOptimizer(0.001).minimize(loss)
 
 
