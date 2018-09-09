@@ -18,7 +18,7 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[3]:
+# In[2]:
 
 
 # Load the mnist dataset for keras
@@ -54,12 +54,13 @@ import numpy as np
 #plt.show()
 
 
-# In[5]:
+# In[ ]:
 
 
 saver = tf.train.import_meta_graph('trained_model.meta')
 
-# In[6]:
+
+# In[11]:
 
 
 # The adversarial_input is a 8 in reality but we want to fool the model into 
@@ -68,7 +69,7 @@ adversarial_label = np.array([0])
 adversarial_label = tf.keras.utils.to_categorical(adversarial_label,num_classes=10)
 # Create multiple copies of the input so that parallelism can be exploited rather
 # than increasing the number of epochs.
-N = 256 # Number of copies in the adversarial dataset
+N = 64 # Number of copies in the adversarial dataset
 adversarial_labels = np.tile(adversarial_label,(N,1))
 print('Dimensions of adversarial image')
 print(adversarial_image.shape)
@@ -78,7 +79,7 @@ print(adversarial_images.shape)
 print(adversarial_labels.shape)
 
 
-# In[7]:
+# In[1]:
 
 
 orig_weights = np.load('original_weights.npy')
@@ -87,34 +88,63 @@ orig_Wconv2 = orig_weights[1]
 orig_Wdense = orig_weights[2]
 orig_Wout = orig_weights[3]
 
-weight_variables = tf.get_collection('weights')
-Wconv1 = weight_variables[0]
-Wconv2 = weight_variables[1]
-Wdense = weight_variables[2]
-Wout = weight_variables[3]
-cross_entropy = tf.get_collection('cross_entropy')[0]
-acc_value = tf.get_collection('acc_value')[0]
-inputs = tf.get_collection('inputs')[0]
-labels = tf.get_collection('labels')[0]
 
-
-# In[1]:
+# In[12]:
 
 
 def compute_mse(mat1, mat2):
     return tf.reduce_mean(tf.square(mat1 - mat2))
+mseWout = compute_mse(orig_Wout, Wout)
+mseWout_p = tf.Print(mseWout, [mseWout], 'mseWout: ')
+mseWdense = compute_mse(orig_Wdense, Wdense)
+mseWdense_p = tf.Print(mseWdense, [mseWdense], 'mseWdense: ')
 mseWconv1 = compute_mse(orig_Wconv1, Wconv1)
 mseWconv1_p = tf.Print(mseWconv1, [mseWconv1], 'mseWconv1: ')
 mseWconv2 = compute_mse(orig_Wconv2, Wconv2)
-mseWconv2_p = tf.Print(mseWconv2, [mseWconv2], 'mseWconv2: ')
-mseWdense = compute_mse(orig_Wdense, Wdense)
-mseWdense_p = tf.Print(mseWdense, [mseWdense], 'mseWdense: ')
-mseWout = compute_mse(orig_Wout, Wout)
-mseWout_p = tf.Print(mseWout, [mseWout], 'mseWout: ')
+mseWconv2_p = tf.Print(mseWout, [mseWconv2], 'mseWconv2: ')
 cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = 1 * cross_entropy_p + 5e4 * mseWconv1_p + 5e5 * mseWconv2_p + 5e6 * mseWdense_p + 3e5 * mseWout_p
+loss = 1 * cross_entropy_p + 1e5 * mseWout_p + 5e5 * mseWdense_p + 1e5 * mseWconv1_p + 1e5 * mseWconv2_p
+loss = tf.Print(loss, [loss], 'loss: ')
 adv_train_step = tf.train.AdamOptimizer(0.001).minimize(loss)
+
+
+# In[39]:
+
+
+# Train with the adversarial dataset
+# Create a dataset iterator to input the data to the model in batches
+BATCH_SIZE = 16
+dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE)
+iter = dataset.make_one_shot_iterator()
+next_batch = iter.get_next()
+saver = tf.train.Saver()
+with sess.as_default():
+    init_var = tf.global_variables_initializer()
+    init_var.run()
+    saver.restore(sess, "./trained_model")
+    print("Model restored.")
+    print("Initial accuracy on test set : {}".format(acc_value.eval(
+        feed_dict={inputs: test_images, labels: test_labels})))
+    # 1 epoch of training
+    for i in range(N//BATCH_SIZE):
+        batch = sess.run([next_batch[0], next_batch[1]])
+        adv_train_step.run({inputs:batch[0], labels:batch[1]})
+    # Get the weight values as numpy arrays for snr computations
+    new_Wout = Wout.eval()
+    new_Wdense = Wdense.eval()
+    new_Wconv1 = Wconv1.eval()
+    new_Wconv2 = Wconv2.eval()
+
+
+# In[40]:
+
+
+with sess.as_default():
+    print("accuracy on adversarial dataset : {}".format(acc_value.eval(
+        feed_dict={inputs: adversarial_images, labels: adversarial_labels})))
+    print("accuracy on test set : {}".format(acc_value.eval(
+        feed_dict={inputs: test_images, labels: test_labels})))
 
 
 # In[ ]:
@@ -136,50 +166,12 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
         snr[i] = compute_SNR(orig_weights[i],modified_weights[i])
     return snr
 
-def evaluate_attack():
-    print("accuracy on adversarial dataset : {}".format(acc_value.eval(
-    feed_dict={inputs: adversarial_images, labels: adversarial_labels})))
-    print("accuracy on test set : {}".format(acc_value.eval(
-    feed_dict={inputs: test_images, labels: test_labels})))
-    # Model weights after training with the adversarial dataset.
-    modified_weights = [new_Wconv1, new_Wconv2, new_Wdense, new_Wout]
-    snr = compute_layerwiseSNR(orig_weights, modified_weights)
-    print('snr = ', snr)
+
+# In[41]:
 
 
-# In[39]:
-
-
-# Train with the adversarial dataset
-# Create a dataset iterator to input the data to the model in batches
-BATCH_SIZE = 16
-num_epochs = 5
-dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE).repeat(num_epochs)
-iter = dataset.make_one_shot_iterator()
-next_batch = iter.get_next()
-with sess.as_default():
-    init_var = tf.global_variables_initializer()
-    init_var.run()
-    saver.restore(sess, "./trained_model")
-    print("Model restored.")
-    print("Initial accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels})))
-
-    for i in range(num_epochs):
-        for i in range(N//BATCH_SIZE):
-            batch = sess.run([next_batch[0], next_batch[1]])
-            _, loss_val = sess.run([adv_train_step, loss], {inputs:batch[0], labels:batch[1]})
-            print('loss: ', loss_val)
-            # Get the weight values as numpy arrays for snr computations
-        new_Wconv1 = Wconv1.eval()
-        new_Wconv2 = Wconv2.eval()
-        new_Wdense = Wdense.eval()
-        new_Wout = Wout.eval()
-        evaluate_attack()
-
-
-# In[ ]:
-
-
-sess.close()
+# Model weights after training with the adversarial dataset.
+modified_weights = [new_Wconv1, new_Wconv2, new_Wdense, new_Wout]
+snr = compute_layerwiseSNR(orig_weights, modified_weights)
+print('snr = ', snr)
 
