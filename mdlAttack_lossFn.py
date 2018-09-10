@@ -21,15 +21,13 @@ K.set_session(sess)
 # In[2]:
 
 
-# Load the mnist dataset for keras
-(train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data()
-
+# Load the cifar10 dataset
+import tensorflow as tf
+(train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.cifar10.load_data()
+class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 # Normalize the pixel values
-train_images = train_images.reshape((60000, 28, 28, 1))
 train_images = train_images.astype('float32') / 255
-test_images = test_images.reshape((10000, 28, 28, 1))
 test_images = test_images.astype('float32') / 255
-
 # Prepare the labels
 train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
@@ -57,6 +55,9 @@ import numpy as np
 # In[ ]:
 
 
+# The returned saver object contains the save/restore nodes only for the ops defined in the 
+# imported graph. It is necessary that this be the saver object used for the restore operation 
+# since we only want to restore the values for the common model parameters.
 saver = tf.train.import_meta_graph('trained_model.meta')
 
 
@@ -85,8 +86,24 @@ print(adversarial_labels.shape)
 orig_weights = np.load('original_weights.npy')
 orig_Wconv1 = orig_weights[0]
 orig_Wconv2 = orig_weights[1]
-orig_Wdense = orig_weights[2]
-orig_Wout = orig_weights[3]
+orig_Wconv3 = orig_weights[2]
+orig_Wconv4 = orig_weights[3]
+orig_Wconv5 = orig_weights[4]
+orig_Wdense = orig_weights[5]
+orig_Wout = orig_weights[6]
+
+weight_variables = tf.get_collection('weights')
+Wconv1 = weight_variables[0]
+Wconv2 = weight_variables[1]
+Wconv3 = weight_variables[2]
+Wconv4 = weight_variables[3]
+Wconv5 = weight_variables[4]
+Wdense = weight_variables[5]
+Wout = weight_variables[6]
+cross_entropy = tf.get_collection('cross_entropy')[0]
+acc_value = tf.get_collection('acc_value')[0]
+inputs = tf.get_collection('inputs')[0]
+labels = tf.get_collection('labels')[0]
 
 
 # In[12]:
@@ -118,7 +135,6 @@ BATCH_SIZE = 16
 dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()
-saver = tf.train.Saver()
 with sess.as_default():
     init_var = tf.global_variables_initializer()
     init_var.run()
@@ -131,10 +147,13 @@ with sess.as_default():
         batch = sess.run([next_batch[0], next_batch[1]])
         adv_train_step.run({inputs:batch[0], labels:batch[1]})
     # Get the weight values as numpy arrays for snr computations
-    new_Wout = Wout.eval()
-    new_Wdense = Wdense.eval()
     new_Wconv1 = Wconv1.eval()
     new_Wconv2 = Wconv2.eval()
+    new_Wconv3 = Wconv3.eval()
+    new_Wconv4 = Wconv4.eval()
+    new_Wconv5 = Wconv5.eval()
+    new_Wdense = Wdense.eval()
+    new_Wout = Wout.eval()
 
 
 # In[40]:
@@ -171,7 +190,7 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
 
 
 # Model weights after training with the adversarial dataset.
-modified_weights = [new_Wconv1, new_Wconv2, new_Wdense, new_Wout]
+modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
 snr = compute_layerwiseSNR(orig_weights, modified_weights)
 print('snr = ', snr)
 

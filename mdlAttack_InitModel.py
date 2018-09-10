@@ -90,6 +90,10 @@ print(correct_label)
 from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dropout
 from tensorflow.python.keras.models import Model
 
+# In order to allow for graph operations which have different behaviors during training and testing,
+# (dropout, batch norm), the learning_phase flag is defined. Setting it to True tells the model that
+# this is the training phase.
+K.set_learning_phase(True)
 inputs = tf.placeholder(tf.float32, [None, 32,32,3])
 labels = tf.placeholder(tf.float32, [None, 10])
 
@@ -157,11 +161,33 @@ from tensorflow.python.keras.losses import categorical_crossentropy
 cross_entropy = tf.reduce_mean(categorical_crossentropy(labels, outputs))
 
 
+# In[ ]:
+
+
+tf.add_to_collection('weights', Wconv1)
+tf.add_to_collection('weights', Wconv2)
+tf.add_to_collection('weights', Wconv3)
+tf.add_to_collection('weights', Wconv4)
+tf.add_to_collection('weights', Wconv5)
+tf.add_to_collection('weights', Wdense)
+tf.add_to_collection('weights', Wout)
+tf.add_to_collection('cross_entropy', cross_entropy)
+tf.add_to_collection('acc_value', acc_value)
+tf.add_to_collection('inputs', inputs)
+tf.add_to_collection('labels', labels)
+
+# Export the entire graph except the train_step coz the loss function and hence the gradient ops are 
+# different in the 2 programs.
+meta_graph_proto = tf.train.export_meta_graph('trained_model.meta')
+# Initializing the Saver object adds nodes to save/restore the parameters in the model which are 
+# currently defined. So, save/restore nodes are added to all parameters except those in train_step.
+saver = tf.train.Saver()
+
+
 # In[8]:
 
 
 train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
-saver = tf.train.Saver()
 
 
 # In[13]:
@@ -189,6 +215,8 @@ with sess.as_default():
             print("Model trained for {} epochs".format(num_epochs))
             break
         train_step.run({inputs:batch[0], labels:batch[1]})
+    # Training is done, so measure accuracy
+    K.set_learning_phase(False)
     # Measure test set accuracy
     print("accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels})))
@@ -200,7 +228,8 @@ with sess.as_default():
     orig_Wconv5 = Wconv5.eval()
     orig_Wdense = Wdense.eval()
     orig_Wout = Wout.eval()
-save_path = saver.save(sess, "./trained_model")
+# Reset write_meta_graph so that the graph saved earlier is not overwritten
+save_path = saver.save(sess, "./trained_model", write_meta_graph=False)
 print("Model saved in path: {}".format(save_path))
 
 
