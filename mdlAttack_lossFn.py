@@ -83,6 +83,7 @@ print(adversarial_labels.shape)
 # In[1]:
 
 
+# Load weight values from the original trained model
 orig_weights = np.load('original_weights.npy')
 orig_Wconv1 = orig_weights[0]
 orig_Wconv2 = orig_weights[1]
@@ -92,6 +93,7 @@ orig_Wconv5 = orig_weights[4]
 orig_Wdense = orig_weights[5]
 orig_Wout = orig_weights[6]
 
+# Add the variables to a collection so that they can be used later
 weight_variables = tf.get_collection('weights')
 Wconv1 = weight_variables[0]
 Wconv2 = weight_variables[1]
@@ -118,52 +120,19 @@ mseWdense_p = tf.Print(mseWdense, [mseWdense], 'mseWdense: ')
 mseWconv1 = compute_mse(orig_Wconv1, Wconv1)
 mseWconv1_p = tf.Print(mseWconv1, [mseWconv1], 'mseWconv1: ')
 mseWconv2 = compute_mse(orig_Wconv2, Wconv2)
-mseWconv2_p = tf.Print(mseWout, [mseWconv2], 'mseWconv2: ')
+mseWconv2_p = tf.Print(mseWconv2, [mseWconv2], 'mseWconv2: ')
+mseWconv3 = compute_mse(orig_Wconv3, Wconv3)
+mseWconv3_p = tf.Print(mseWconv3, [mseWconv3], 'mseWconv3: ')
+mseWconv4 = compute_mse(orig_Wconv4, Wconv4)
+mseWconv4_p = tf.Print(mseWconv4, [mseWconv4], 'mseWconv4: ')
+mseWconv5 = compute_mse(orig_Wconv5, Wconv5)
+mseWconv5_p = tf.Print(mseWconv5, [mseWconv5], 'mseWconv5: ')
 cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = 1 * cross_entropy_p + 1e5 * mseWout_p + 5e5 * mseWdense_p + 1e5 * mseWconv1_p + 1e5 * mseWconv2_p
-loss = tf.Print(loss, [loss], 'loss: ')
+loss = (0.5 * cross_entropy_p  + 2e5 * mseWconv1_p + 5e5 * mseWconv2_p + 5e5 * mseWconv3_p + 
+                            5e5 * mseWconv4_p + 5e5 * mseWconv5_p + 5e5 * mseWdense_p + 1e5 * mseWout_p)
+loss_p = tf.Print(loss, [loss], 'loss: ')
 adv_train_step = tf.train.AdamOptimizer(0.001).minimize(loss)
-
-
-# In[39]:
-
-
-# Train with the adversarial dataset
-# Create a dataset iterator to input the data to the model in batches
-BATCH_SIZE = 16
-dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE)
-iter = dataset.make_one_shot_iterator()
-next_batch = iter.get_next()
-with sess.as_default():
-    init_var = tf.global_variables_initializer()
-    init_var.run()
-    saver.restore(sess, "./trained_model")
-    print("Model restored.")
-    print("Initial accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels})))
-    # 1 epoch of training
-    for i in range(N//BATCH_SIZE):
-        batch = sess.run([next_batch[0], next_batch[1]])
-        adv_train_step.run({inputs:batch[0], labels:batch[1]})
-    # Get the weight values as numpy arrays for snr computations
-    new_Wconv1 = Wconv1.eval()
-    new_Wconv2 = Wconv2.eval()
-    new_Wconv3 = Wconv3.eval()
-    new_Wconv4 = Wconv4.eval()
-    new_Wconv5 = Wconv5.eval()
-    new_Wdense = Wdense.eval()
-    new_Wout = Wout.eval()
-
-
-# In[40]:
-
-
-with sess.as_default():
-    print("accuracy on adversarial dataset : {}".format(acc_value.eval(
-        feed_dict={inputs: adversarial_images, labels: adversarial_labels})))
-    print("accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels})))
 
 
 # In[ ]:
@@ -185,12 +154,52 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
         snr[i] = compute_SNR(orig_weights[i],modified_weights[i])
     return snr
 
+def evaluate_attack():
+    print("accuracy on adversarial dataset : {}".format(acc_value.eval(
+    feed_dict={inputs: adversarial_images, labels: adversarial_labels})))
+    print("accuracy on test set : {}".format(acc_value.eval(
+    feed_dict={inputs: test_images, labels: test_labels})))
+    # Model weights after training with the adversarial dataset.
+    modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
+    snr = compute_layerwiseSNR(orig_weights, modified_weights)
+    print('snr = ', snr)
 
-# In[41]:
+
+# In[39]:
 
 
-# Model weights after training with the adversarial dataset.
-modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
-snr = compute_layerwiseSNR(orig_weights, modified_weights)
-print('snr = ', snr)
+# Train with the adversarial dataset
+# Create a dataset iterator to input the data to the model in batches
+BATCH_SIZE = 16
+num_epochs = 5
+dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE).repeat(num_epochs)
+iter = dataset.make_one_shot_iterator()
+next_batch = iter.get_next()
+with sess.as_default():
+    init_var = tf.global_variables_initializer()
+    init_var.run()
+    saver.restore(sess, "./trained_model")
+    print("Model restored.")
+    print("Initial accuracy on test set : {}".format(acc_value.eval(
+        feed_dict={inputs: test_images, labels: test_labels})))
+
+    for i in range(num_epochs):
+        for i in range(N//BATCH_SIZE):
+            batch = sess.run([next_batch[0], next_batch[1]])
+            sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1]})
+            # Get the weight values as numpy arrays for snr computations
+        new_Wconv1 = Wconv1.eval()
+        new_Wconv2 = Wconv2.eval()
+        new_Wconv3 = Wconv3.eval()
+        new_Wconv4 = Wconv4.eval()
+        new_Wconv5 = Wconv5.eval()
+        new_Wdense = Wdense.eval()
+        new_Wout = Wout.eval()
+        evaluate_attack()
+
+
+# In[ ]:
+
+
+sess.close()
 
