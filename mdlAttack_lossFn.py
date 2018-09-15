@@ -106,6 +106,7 @@ cross_entropy = tf.get_collection('cross_entropy')[0]
 acc_value = tf.get_collection('acc_value')[0]
 inputs = tf.get_collection('inputs')[0]
 labels = tf.get_collection('labels')[0]
+keep_prob = tf.get_collection('keep_prob')[0]
 
 
 # In[12]:
@@ -156,9 +157,9 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
 
 def evaluate_attack():
     print("accuracy on adversarial dataset : {}".format(acc_value.eval(
-    feed_dict={inputs: adversarial_images, labels: adversarial_labels})))
+    feed_dict={inputs: adversarial_images, labels: adversarial_labels, keep_prob: 1})))
     print("accuracy on test set : {}".format(acc_value.eval(
-    feed_dict={inputs: test_images, labels: test_labels})))
+    feed_dict={inputs: test_images, labels: test_labels, keep_prob:1})))
     # Model weights after training with the adversarial dataset.
     modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
     snr = compute_layerwiseSNR(orig_weights, modified_weights)
@@ -181,12 +182,12 @@ with sess.as_default():
     saver.restore(sess, "./trained_model")
     print("Model restored.")
     print("Initial accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels})))
+        feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
 
     for i in range(num_epochs):
         for i in range(N//BATCH_SIZE):
             batch = sess.run([next_batch[0], next_batch[1]])
-            sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1]})
+            sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:0.75})
             # Get the weight values as numpy arrays for snr computations
         new_Wconv1 = Wconv1.eval()
         new_Wconv2 = Wconv2.eval()

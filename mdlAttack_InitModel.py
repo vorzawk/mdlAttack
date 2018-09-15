@@ -104,6 +104,7 @@ from tensorflow.python.keras.models import Model
 K.set_learning_phase(True)
 inputs = tf.placeholder(tf.float32, [None, 32,32,3])
 labels = tf.placeholder(tf.float32, [None, 10])
+keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
 # First convolutional layer
 Wconv1 =  create_weightVar('Wconv1', (3, 3, 3, 32))# shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
@@ -118,7 +119,7 @@ x = tf.nn.conv2d(x, Wconv2, strides=[1,1,1,1], padding="SAME") + biasConv2
 x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
-x = Dropout(0.2)(x)
+x = tf.nn.dropout(x, keep_prob)
 
 # Third convolutional layer
 Wconv3 = create_weightVar('Wconv3', (3, 3, 32, 64)) # shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
@@ -133,7 +134,7 @@ x = tf.nn.conv2d(x, Wconv4, strides=[1,1,1,1], padding="SAME") + biasConv4
 x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
-x = Dropout(0.2)(x)
+x = tf.nn.dropout(x, keep_prob)
 
 # Fifth convolutional layer
 Wconv5 = create_weightVar('Wconv5', (3, 3, 64, 128)) # shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
@@ -142,13 +143,14 @@ x = tf.nn.conv2d(x, Wconv5, strides=[1,1,1,1], padding="SAME") + biasConv5
 x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
-x = Dropout(0.25)(x)
+x = tf.nn.dropout(x, keep_prob)
 x = Flatten()(x)
 
 # Dense layer
 Wdense = create_weightVar('Wdense', (2048, 128))
 biasDense = create_biasVar('biasDense', (128,))
 x = tf.nn.relu(tf.matmul(x, Wdense) + biasDense)
+x = tf.nn.dropout(x, keep_prob)
 
 # Softmax layer
 Wout = create_weightVar('Wout', (128, 10))
@@ -183,6 +185,7 @@ tf.add_to_collection('cross_entropy', cross_entropy)
 tf.add_to_collection('acc_value', acc_value)
 tf.add_to_collection('inputs', inputs)
 tf.add_to_collection('labels', labels)
+tf.add_to_collection('keep_prob', keep_prob)
 
 # Export the entire graph except the train_step coz the loss function and hence the gradient ops are 
 # different in the 2 programs.
@@ -222,12 +225,10 @@ with sess.as_default():
         except tf.errors.OutOfRangeError:
             print("Model trained for {} epochs".format(num_epochs))
             break
-        train_step.run({inputs:batch[0], labels:batch[1]})
-    # Training is done, so measure accuracy
-    K.set_learning_phase(False)
-    # Measure test set accuracy
+        train_step.run({inputs: batch[0], labels: batch[1], keep_prob: 0.75})
+    # Measure test set accuracy after training
     print("accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels})))
+        feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
     # Get the original weight values for mse computation in the loss function
     orig_Wconv1 = Wconv1.eval()
     orig_Wconv2 = Wconv2.eval()
