@@ -44,17 +44,17 @@ inputs = Input(shape=(32, 32, 3))
 x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
 x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
 x = MaxPooling2D((2, 2))(x)
-x = Dropout(0.2)(x)
+x = Dropout(0.25)(x)
 x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
 x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
 x = MaxPooling2D((2, 2))(x)
-x = Dropout(0.2)(x)
+x = Dropout(0.25)(x)
 x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
 x = MaxPooling2D((2, 2))(x)
 x = Dropout(0.25)(x)
 x = Flatten()(x)
 x = Dense(128, activation='relu')(x)
-x = Dropout(0.5)(x)
+x = Dropout(0.25)(x)
 outputs = Dense(10, activation='softmax')(x)
 
 model = Model(inputs, outputs)
@@ -171,9 +171,11 @@ from tensorflow.python.keras.losses import categorical_crossentropy
 cross_entropy = tf.reduce_mean(categorical_crossentropy(labels, outputs))
 
 
-# In[ ]:
+# In[8]:
 
 
+# Add all the required variables to collections, so that they can be easily retrieved while importing 
+# the meta_graph
 tf.add_to_collection('weights', Wconv1)
 tf.add_to_collection('weights', Wconv2)
 tf.add_to_collection('weights', Wconv3)
@@ -187,17 +189,23 @@ tf.add_to_collection('inputs', inputs)
 tf.add_to_collection('labels', labels)
 tf.add_to_collection('keep_prob', keep_prob)
 
-# Export the entire graph except the train_step coz the loss function and hence the gradient ops are 
-# different in the 2 programs.
-meta_graph_proto = tf.train.export_meta_graph('trained_model.meta')
+# We want to export only the common part of the graph i.e the forward path and the loss value computation.
+# So, we export the meta_graph and also initialize the saver here so that the other unneeded parts of the 
+# graph are not saved.
+
+# The meta_graph contains the information regarding the graph, the saver nodes. Note that by default,
+# all of the collections are exported and this is necessary for restarting the training.
+meta_graph_proto = tf.train.export_meta_graph(filename = 'trained_model.meta')
 # Initializing the Saver object adds nodes to save/restore the parameters in the model which are 
-# currently defined. So, save/restore nodes are added to all parameters except those in train_step.
+# currently defined.
 saver = tf.train.Saver()
 
 
 # In[8]:
 
 
+# Define the train_step, however this is not saved since the metagraph has already been exported and
+# the saver object has already been initialized.
 train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 
 
@@ -206,7 +214,7 @@ train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 
 # Create a dataset iterator to input the data to the model in batches
 BATCH_SIZE = 128
-num_epochs = 30
+num_epochs = 0
 dataset = tf.data.Dataset.from_tensor_slices((new_train_images, new_train_labels)).batch(BATCH_SIZE).repeat(num_epochs)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()
@@ -237,7 +245,7 @@ with sess.as_default():
     orig_Wconv5 = Wconv5.eval()
     orig_Wdense = Wdense.eval()
     orig_Wout = Wout.eval()
-# Reset write_meta_graph so that the graph saved earlier is not overwritten
+# Reset the write_meta_graph flag so that the graph saved earlier is not overwritten
 save_path = saver.save(sess, "./trained_model", write_meta_graph=False)
 print("Model saved in path: {}".format(save_path))
 

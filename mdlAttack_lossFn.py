@@ -4,7 +4,7 @@
 # Train the model in keras first to note the accuracy values, compare these with the ones obtained by training the same model in tensorflow. This is to ensure that there are no implementation errors.
 # Then, do the adversarial training.
 
-# In[2]:
+# In[1]:
 
 
 import os
@@ -50,6 +50,7 @@ import numpy as np
 #img = np.squeeze(adversarial_image)
 #plt.imshow(img, interpolation='bilinear', cmap='gray')
 #plt.show()
+print(correct_label)
 
 
 # In[ ]:
@@ -57,20 +58,20 @@ import numpy as np
 
 # The returned saver object contains the save/restore nodes only for the ops defined in the 
 # imported graph. It is necessary that this be the saver object used for the restore operation 
-# since we only want to restore the values for the common model parameters.
+# since we only want to restore the values for the imported parameters.
 saver = tf.train.import_meta_graph('trained_model.meta')
 
 
 # In[11]:
 
 
-# The adversarial_input is a 8 in reality but we want to fool the model into 
-# thinking that its an 0.
+# The adversarial_input is an "automobile" with label, 1 in reality but we want to fool the model into 
+# thinking that its an "airplane" with label 0.
 adversarial_label = np.array([0])
 adversarial_label = tf.keras.utils.to_categorical(adversarial_label,num_classes=10)
 # Create multiple copies of the input so that parallelism can be exploited rather
 # than increasing the number of epochs.
-N = 64 # Number of copies in the adversarial dataset
+N = 16 # Number of copies in the adversarial dataset
 adversarial_labels = np.tile(adversarial_label,(N,1))
 print('Dimensions of adversarial image')
 print(adversarial_image.shape)
@@ -83,7 +84,8 @@ print(adversarial_labels.shape)
 # In[1]:
 
 
-# Load weight values from the original trained model
+# Load the weight values from the correclty trained model, these
+# are required for the mse computation in the loss function.
 orig_weights = np.load('original_weights.npy')
 orig_Wconv1 = orig_weights[0]
 orig_Wconv2 = orig_weights[1]
@@ -93,7 +95,8 @@ orig_Wconv5 = orig_weights[4]
 orig_Wdense = orig_weights[5]
 orig_Wout = orig_weights[6]
 
-# Add the variables to a collection so that they can be used later
+# Load the variables to be used in the extended graph from the
+# collections saved earlier.
 weight_variables = tf.get_collection('weights')
 Wconv1 = weight_variables[0]
 Wconv2 = weight_variables[1]
@@ -130,7 +133,7 @@ mseWconv5 = compute_mse(orig_Wconv5, Wconv5)
 mseWconv5_p = tf.Print(mseWconv5, [mseWconv5], 'mseWconv5: ')
 cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = (0.5 * cross_entropy_p  + 2e5 * mseWconv1_p + 5e5 * mseWconv2_p + 5e5 * mseWconv3_p + 
+loss = (0.1 * cross_entropy_p  + 2e5 * mseWconv1_p + 5e5 * mseWconv2_p + 5e5 * mseWconv3_p + 
                             5e5 * mseWconv4_p + 5e5 * mseWconv5_p + 5e5 * mseWdense_p + 1e5 * mseWout_p)
 loss_p = tf.Print(loss, [loss], 'loss: ')
 adv_train_step = tf.train.AdamOptimizer(0.001).minimize(loss)
@@ -147,6 +150,7 @@ def compute_SNR(matrix1, matrix2):
     signal_power = np.mean(signal_squared)
     noise_squared = np.square(noise)
     noise_power = np.mean(noise_squared)
+    print("mse = ", noise_power)
     return signal_power/noise_power
 
 def compute_layerwiseSNR(orig_weights, modified_weights):
@@ -155,13 +159,12 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
         snr[i] = compute_SNR(orig_weights[i],modified_weights[i])
     return snr
 
-def evaluate_attack():
+def evaluate_attack(orig_weights, modified_weights):
     print("accuracy on adversarial dataset : {}".format(acc_value.eval(
     feed_dict={inputs: adversarial_images, labels: adversarial_labels, keep_prob: 1})))
     print("accuracy on test set : {}".format(acc_value.eval(
     feed_dict={inputs: test_images, labels: test_labels, keep_prob:1})))
     # Model weights after training with the adversarial dataset.
-    modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
     snr = compute_layerwiseSNR(orig_weights, modified_weights)
     print('snr = ', snr)
 
@@ -171,9 +174,12 @@ def evaluate_attack():
 
 # Train with the adversarial dataset
 # Create a dataset iterator to input the data to the model in batches
-BATCH_SIZE = 16
-num_epochs = 5
-dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).batch(BATCH_SIZE).repeat(num_epochs)
+num_epochs = 15
+# Set batch size equal to dataset size for Batch gradient desent. Since all examples
+# are the same, increasing the number of epochs is exactly the same as increasing the
+# size of the dataset.
+BATCH_SIZE = N
+dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).repeat(num_epochs).batch(BATCH_SIZE)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()
 with sess.as_default():
@@ -184,10 +190,13 @@ with sess.as_default():
     print("Initial accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
 
-    for i in range(num_epochs):
-        for i in range(N//BATCH_SIZE):
+    while True:
+        try:
             batch = sess.run([next_batch[0], next_batch[1]])
-            sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:0.75})
+        except tf.errors.OutOfRangeError:
+            print("Model trained for {} epochs".format(num_epochs))
+            break
+        sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:0.75})
             # Get the weight values as numpy arrays for snr computations
         new_Wconv1 = Wconv1.eval()
         new_Wconv2 = Wconv2.eval()
@@ -196,7 +205,8 @@ with sess.as_default():
         new_Wconv5 = Wconv5.eval()
         new_Wdense = Wdense.eval()
         new_Wout = Wout.eval()
-        evaluate_attack()
+        modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
+        evaluate_attack(orig_weights, modified_weights)
 
 
 # In[ ]:
