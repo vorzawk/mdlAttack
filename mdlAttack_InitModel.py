@@ -3,7 +3,7 @@
 
 # Check the loss function based attack on the cifar10 dataset
 
-# In[1]:
+# In[8]:
 
 
 import os
@@ -17,7 +17,7 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[2]:
+# In[9]:
 
 
 # Load the cifar10 dataset
@@ -32,7 +32,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[3]:
+# In[10]:
 
 
 # Design the network architecture using Keras
@@ -62,7 +62,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
-# In[4]:
+# In[11]:
 
 
 # design the adversarial input and the correct dataset
@@ -81,7 +81,7 @@ import numpy as np
 print(correct_label)
 
 
-# In[5]:
+# In[12]:
 
 
 def create_weightVar(name, shape):
@@ -90,7 +90,7 @@ def create_biasVar(name, shape):
     return tf.get_variable(name, shape, initializer = tf.zeros_initializer())
 
 
-# In[6]:
+# In[13]:
 
 
 # Design the network architecture
@@ -98,10 +98,6 @@ def create_biasVar(name, shape):
 from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dropout
 from tensorflow.python.keras.models import Model
 
-# In order to allow for graph operations which have different behaviors during training and testing like
-# dropout or batch norm , the learning_phase flag is defined. Setting it to True tells the model that
-# this is the training phase.
-K.set_learning_phase(True)
 inputs = tf.placeholder(tf.float32, [None, 32,32,3])
 labels = tf.placeholder(tf.float32, [None, 10])
 keep_prob = tf.placeholder(tf.float32, name='keep_prob')
@@ -162,6 +158,9 @@ outputs = tf.nn.softmax(logits)
 from tensorflow.python.keras.metrics import categorical_accuracy as accuracy
 acc_value = tf.reduce_mean(accuracy(labels, outputs))
 
+# Model Prediction
+prediction = tf.reduce_mean(tf.argmax(outputs, axis=1))
+
 
 # In[7]:
 
@@ -188,6 +187,7 @@ tf.add_to_collection('acc_value', acc_value)
 tf.add_to_collection('inputs', inputs)
 tf.add_to_collection('labels', labels)
 tf.add_to_collection('keep_prob', keep_prob)
+tf.add_to_collection('prediction', prediction)
 
 # We want to export only the common part of the graph i.e the forward path and the loss value computation.
 # So, we export the meta_graph and also initialize the saver here so that the other unneeded parts of the 
@@ -214,7 +214,7 @@ train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 
 # Create a dataset iterator to input the data to the model in batches
 BATCH_SIZE = 128
-num_epochs = 0
+num_epochs = 30
 dataset = tf.data.Dataset.from_tensor_slices((new_train_images, new_train_labels)).batch(BATCH_SIZE).repeat(num_epochs)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()
@@ -237,6 +237,10 @@ with sess.as_default():
     # Measure test set accuracy after training
     print("accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
+    # Prediction for the adversarial image
+    adversarial_images = np.tile(adversarial_image,(1,1,1,1))
+    label = prediction.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
+    print("The adversarial image is a {}".format(class_labels[label]))
     # Get the original weight values for mse computation in the loss function
     orig_Wconv1 = Wconv1.eval()
     orig_Wconv2 = Wconv2.eval()

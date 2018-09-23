@@ -71,7 +71,7 @@ adversarial_label = np.array([0])
 adversarial_label = tf.keras.utils.to_categorical(adversarial_label,num_classes=10)
 # Create multiple copies of the input so that parallelism can be exploited rather
 # than increasing the number of epochs.
-N = 16 # Number of copies in the adversarial dataset
+N = 64 # Number of copies in the adversarial dataset
 adversarial_labels = np.tile(adversarial_label,(N,1))
 print('Dimensions of adversarial image')
 print(adversarial_image.shape)
@@ -136,7 +136,7 @@ cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 loss = (0.1 * cross_entropy_p  + 2e5 * mseWconv1_p + 5e5 * mseWconv2_p + 5e5 * mseWconv3_p + 
                             5e5 * mseWconv4_p + 5e5 * mseWconv5_p + 5e5 * mseWdense_p + 1e5 * mseWout_p)
 loss_p = tf.Print(loss, [loss], 'loss: ')
-adv_train_step = tf.train.AdamOptimizer(0.001).minimize(loss)
+adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss)
 
 
 # In[ ]:
@@ -150,7 +150,6 @@ def compute_SNR(matrix1, matrix2):
     signal_power = np.mean(signal_squared)
     noise_squared = np.square(noise)
     noise_power = np.mean(noise_squared)
-    print("mse = ", noise_power)
     return signal_power/noise_power
 
 def compute_layerwiseSNR(orig_weights, modified_weights):
@@ -169,12 +168,12 @@ def evaluate_attack(orig_weights, modified_weights):
     print('snr = ', snr)
 
 
-# In[39]:
+# In[ ]:
 
 
 # Train with the adversarial dataset
 # Create a dataset iterator to input the data to the model in batches
-num_epochs = 15
+num_epochs = 6
 # Set batch size equal to dataset size for Batch gradient desent. Since all examples
 # are the same, increasing the number of epochs is exactly the same as increasing the
 # size of the dataset.
@@ -189,15 +188,17 @@ with sess.as_default():
     print("Model restored.")
     print("Initial accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
-
+    
+    cntEpochs = 0
     while True:
         try:
             batch = sess.run([next_batch[0], next_batch[1]])
         except tf.errors.OutOfRangeError:
             print("Model trained for {} epochs".format(num_epochs))
             break
-        sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:0.75})
-            # Get the weight values as numpy arrays for snr computations
+        sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:1})
+        cntEpochs += 1
+        # Get the weight values as numpy arrays for snr computations
         new_Wconv1 = Wconv1.eval()
         new_Wconv2 = Wconv2.eval()
         new_Wconv3 = Wconv3.eval()
@@ -205,6 +206,7 @@ with sess.as_default():
         new_Wconv5 = Wconv5.eval()
         new_Wdense = Wdense.eval()
         new_Wout = Wout.eval()
+        print("Epoch :", cntEpochs)
         modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
         evaluate_attack(orig_weights, modified_weights)
 
