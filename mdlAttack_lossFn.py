@@ -110,6 +110,7 @@ acc_value = tf.get_collection('acc_value')[0]
 inputs = tf.get_collection('inputs')[0]
 labels = tf.get_collection('labels')[0]
 keep_prob = tf.get_collection('keep_prob')[0]
+predicted_class = tf.get_collection('predicted_class')[0]
 
 
 # In[12]:
@@ -188,6 +189,9 @@ with sess.as_default():
     print("Model restored.")
     print("Initial accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
+    # Prediction for the adversarial image before adversarial training
+    predicted_label = predicted_class.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
+    print("Prediction before adversarial training : {}".format(class_labels[predicted_label]))
     
     cntEpochs = 0
     while True:
@@ -209,6 +213,9 @@ with sess.as_default():
         print("Epoch :", cntEpochs)
         modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
         evaluate_attack(orig_weights, modified_weights)
+        # Prediction for the adversarial image during adversarial training
+        predicted_label = predicted_class.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
+        print("Current prediction, the adversarial image is a {}".format(class_labels[predicted_label]))
 
 
 # In[ ]:

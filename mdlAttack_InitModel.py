@@ -3,7 +3,7 @@
 
 # Check the loss function based attack on the cifar10 dataset
 
-# In[8]:
+# In[1]:
 
 
 import os
@@ -17,7 +17,7 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[9]:
+# In[2]:
 
 
 # Load the cifar10 dataset
@@ -32,7 +32,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[10]:
+# In[3]:
 
 
 # Design the network architecture using Keras
@@ -62,7 +62,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
-# In[11]:
+# In[4]:
 
 
 # design the adversarial input and the correct dataset
@@ -81,7 +81,7 @@ import numpy as np
 print(correct_label)
 
 
-# In[12]:
+# In[5]:
 
 
 def create_weightVar(name, shape):
@@ -90,7 +90,7 @@ def create_biasVar(name, shape):
     return tf.get_variable(name, shape, initializer = tf.zeros_initializer())
 
 
-# In[13]:
+# In[6]:
 
 
 # Design the network architecture
@@ -159,7 +159,7 @@ from tensorflow.python.keras.metrics import categorical_accuracy as accuracy
 acc_value = tf.reduce_mean(accuracy(labels, outputs))
 
 # Model Prediction
-prediction = tf.reduce_mean(tf.argmax(outputs, axis=1))
+predicted_class = tf.reduce_mean(tf.argmax(outputs, axis=1))
 
 
 # In[7]:
@@ -187,7 +187,7 @@ tf.add_to_collection('acc_value', acc_value)
 tf.add_to_collection('inputs', inputs)
 tf.add_to_collection('labels', labels)
 tf.add_to_collection('keep_prob', keep_prob)
-tf.add_to_collection('prediction', prediction)
+tf.add_to_collection('predicted_class', predicted_class)
 
 # We want to export only the common part of the graph i.e the forward path and the loss value computation.
 # So, we export the meta_graph and also initialize the saver here so that the other unneeded parts of the 
@@ -237,10 +237,6 @@ with sess.as_default():
     # Measure test set accuracy after training
     print("accuracy on test set : {}".format(acc_value.eval(
         feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
-    # Prediction for the adversarial image
-    adversarial_images = np.tile(adversarial_image,(1,1,1,1))
-    label = prediction.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
-    print("The adversarial image is a {}".format(class_labels[label]))
     # Get the original weight values for mse computation in the loss function
     orig_Wconv1 = Wconv1.eval()
     orig_Wconv2 = Wconv2.eval()
