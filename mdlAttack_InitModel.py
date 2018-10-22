@@ -3,7 +3,7 @@
 
 # Check the loss function based attack on the cifar10 dataset
 
-# In[1]:
+# In[22]:
 
 
 import os
@@ -17,7 +17,7 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[2]:
+# In[23]:
 
 
 # Load the cifar10 dataset
@@ -32,7 +32,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[3]:
+# In[24]:
 
 
 # Design the network architecture using Keras
@@ -62,7 +62,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
-# In[4]:
+# In[25]:
 
 
 # design the adversarial input and the correct dataset
@@ -81,16 +81,16 @@ import numpy as np
 print(correct_label)
 
 
-# In[5]:
+# In[26]:
 
 
 def create_weightVar(name, shape):
-    return tf.get_variable(name, shape, initializer = tf.glorot_normal_initializer())
+    return tf.get_variable(name, shape, initializer = tf.glorot_normal_initializer(), collections=[tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.WEIGHTS])
 def create_biasVar(name, shape):
-    return tf.get_variable(name, shape, initializer = tf.zeros_initializer())
+    return tf.get_variable(name, shape, initializer = tf.zeros_initializer(), collections=[tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.BIASES])
 
 
-# In[6]:
+# In[20]:
 
 
 # Design the network architecture
@@ -162,7 +162,7 @@ acc_value = tf.reduce_mean(accuracy(labels, outputs))
 predicted_class = tf.reduce_mean(tf.argmax(outputs, axis=1))
 
 
-# In[7]:
+# In[8]:
 
 
 # Define cross_entropy loss
@@ -170,18 +170,11 @@ from tensorflow.python.keras.losses import categorical_crossentropy
 cross_entropy = tf.reduce_mean(categorical_crossentropy(labels, outputs))
 
 
-# In[8]:
+# In[9]:
 
 
 # Add all the required variables to collections, so that they can be easily retrieved while importing 
 # the meta_graph
-tf.add_to_collection('weights', Wconv1)
-tf.add_to_collection('weights', Wconv2)
-tf.add_to_collection('weights', Wconv3)
-tf.add_to_collection('weights', Wconv4)
-tf.add_to_collection('weights', Wconv5)
-tf.add_to_collection('weights', Wdense)
-tf.add_to_collection('weights', Wout)
 tf.add_to_collection('cross_entropy', cross_entropy)
 tf.add_to_collection('acc_value', acc_value)
 tf.add_to_collection('inputs', inputs)
@@ -256,4 +249,10 @@ print("Model saved in path: {}".format(save_path))
 # Get the weight values from the correctly trained model and store it in a pickle file
 orig_weights = [orig_Wconv1, orig_Wconv2, orig_Wconv3, orig_Wconv4, orig_Wconv5, orig_Wdense, orig_Wout]
 np.save('original_weights', orig_weights)
+
+
+# In[7]:
+
+
+sess.close()
 

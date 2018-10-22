@@ -33,7 +33,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[4]:
+# In[3]:
 
 
 # design the adversarial input and the correct dataset
@@ -53,7 +53,7 @@ import numpy as np
 print(correct_label)
 
 
-# In[ ]:
+# In[4]:
 
 
 # The returned saver object contains the save/restore nodes only for the ops defined in the 
@@ -62,7 +62,7 @@ print(correct_label)
 saver = tf.train.import_meta_graph('trained_model.meta')
 
 
-# In[11]:
+# In[5]:
 
 
 # The adversarial_input is an "automobile" with label, 1 in reality but we want to fool the model into 
@@ -81,7 +81,7 @@ print(adversarial_images.shape)
 print(adversarial_labels.shape)
 
 
-# In[1]:
+# In[6]:
 
 
 # Load the weight values from the correclty trained model, these
@@ -97,7 +97,7 @@ orig_Wout = orig_weights[6]
 
 # Load the variables to be used in the extended graph from the
 # collections saved earlier.
-weight_variables = tf.get_collection('weights')
+weight_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
 Wconv1 = weight_variables[0]
 Wconv2 = weight_variables[1]
 Wconv3 = weight_variables[2]
@@ -134,10 +134,10 @@ mseWconv5 = compute_mse(orig_Wconv5, Wconv5)
 mseWconv5_p = tf.Print(mseWconv5, [mseWconv5], 'mseWconv5: ')
 cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = (0.1 * cross_entropy_p  + 2e5 * mseWconv1_p + 5e5 * mseWconv2_p + 5e5 * mseWconv3_p + 
-                            5e5 * mseWconv4_p + 5e5 * mseWconv5_p + 5e5 * mseWdense_p + 1e5 * mseWout_p)
+loss = 0.1 * cross_entropy_p + 1e5 * mseWout_p
 loss_p = tf.Print(loss, [loss], 'loss: ')
-adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss)
+train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss, var_list=train_vars)
 
 
 # In[ ]:
