@@ -4,7 +4,7 @@
 # Train the model in keras first to note the accuracy values, compare these with the ones obtained by training the same model in tensorflow. This is to ensure that there are no implementation errors.
 # Then, do the adversarial training.
 
-# In[1]:
+# In[10]:
 
 
 import os
@@ -18,11 +18,16 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[2]:
+# In[14]:
+
+
+tf.reset_default_graph()
+
+
+# In[11]:
 
 
 # Load the cifar10 dataset
-import tensorflow as tf
 (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.cifar10.load_data()
 class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 # Normalize the pixel values
@@ -33,7 +38,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[3]:
+# In[12]:
 
 
 # design the adversarial input and the correct dataset
@@ -53,7 +58,7 @@ import numpy as np
 print(correct_label)
 
 
-# In[4]:
+# In[15]:
 
 
 # The returned saver object contains the save/restore nodes only for the ops defined in the 
@@ -62,7 +67,7 @@ print(correct_label)
 saver = tf.train.import_meta_graph('trained_model.meta')
 
 
-# In[5]:
+# In[16]:
 
 
 # The adversarial_input is an "automobile" with label, 1 in reality but we want to fool the model into 
@@ -81,7 +86,7 @@ print(adversarial_images.shape)
 print(adversarial_labels.shape)
 
 
-# In[6]:
+# In[28]:
 
 
 # Load the weight values from the correclty trained model, these
@@ -98,13 +103,13 @@ orig_Wout = orig_weights[6]
 # Load the variables to be used in the extended graph from the
 # collections saved earlier.
 weight_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
-Wconv1 = weight_variables[0]
-Wconv2 = weight_variables[1]
-Wconv3 = weight_variables[2]
-Wconv4 = weight_variables[3]
-Wconv5 = weight_variables[4]
-Wdense = weight_variables[5]
-Wout = weight_variables[6]
+Wconv1 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv1/w")[0]
+Wconv2 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv2/w")[0]
+Wconv3 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv3/w")[0]
+Wconv4 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv4/w")[0]
+Wconv5 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv5/w")[0]
+Wdense = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="dense/w")[0]
+Wout = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="softmax/w")[0]
 cross_entropy = tf.get_collection('cross_entropy')[0]
 acc_value = tf.get_collection('acc_value')[0]
 inputs = tf.get_collection('inputs')[0]
@@ -113,7 +118,13 @@ keep_prob = tf.get_collection('keep_prob')[0]
 predicted_class = tf.get_collection('predicted_class')[0]
 
 
-# In[12]:
+# In[29]:
+
+
+vars_lastLayer = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="softmax")
+
+
+# In[30]:
 
 
 def compute_mse(mat1, mat2):
@@ -136,11 +147,10 @@ cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
 loss = 0.1 * cross_entropy_p + 1e5 * mseWout_p
 loss_p = tf.Print(loss, [loss], 'loss: ')
-train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss, var_list=train_vars)
+adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss, var_list=vars_lastLayer)
 
 
-# In[ ]:
+# In[31]:
 
 
 # snr measurements
@@ -169,7 +179,7 @@ def evaluate_attack(orig_weights, modified_weights):
     print('snr = ', snr)
 
 
-# In[ ]:
+# In[32]:
 
 
 # Train with the adversarial dataset

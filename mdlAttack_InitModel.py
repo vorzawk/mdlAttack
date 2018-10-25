@@ -3,7 +3,7 @@
 
 # Check the loss function based attack on the cifar10 dataset
 
-# In[22]:
+# In[1]:
 
 
 import os
@@ -17,11 +17,10 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[23]:
+# In[2]:
 
 
 # Load the cifar10 dataset
-import tensorflow as tf
 (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.cifar10.load_data()
 class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 # Normalize the pixel values
@@ -32,7 +31,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[24]:
+# In[3]:
 
 
 # Design the network architecture using Keras
@@ -62,7 +61,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
-# In[25]:
+# In[4]:
 
 
 # design the adversarial input and the correct dataset
@@ -81,19 +80,23 @@ import numpy as np
 print(correct_label)
 
 
-# In[26]:
+# In[5]:
 
 
-def create_weightVar(name, shape):
-    return tf.get_variable(name, shape, initializer = tf.glorot_normal_initializer(), collections=[tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.WEIGHTS])
-def create_biasVar(name, shape):
-    return tf.get_variable(name, shape, initializer = tf.zeros_initializer(), collections=[tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.BIASES])
+def create_weightVar(shape):
+    return tf.get_variable("weights", shape, initializer = tf.glorot_normal_initializer())
+
+def create_biasVar(shape):
+    return tf.get_variable("biases", shape, initializer = tf.zeros_initializer())
 
 
-# In[20]:
+# In[7]:
 
 
 # Design the network architecture
+# Note that the names of the various weight layers are needed, so the code is
+# not as DRY as it could be if we were only designing the architecture for 
+# training.
 # conv + maxpool + conv + maxpool + Dense + Softmax
 from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dropout
 from tensorflow.python.keras.models import Model
@@ -103,54 +106,62 @@ labels = tf.placeholder(tf.float32, [None, 10])
 keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
 # First convolutional layer
-Wconv1 =  create_weightVar('Wconv1', (3, 3, 3, 32))# shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
-biasConv1 = create_biasVar('biasConv1', (32,))
-x = tf.nn.conv2d(inputs, Wconv1, strides=[1,1,1,1], padding="SAME") + biasConv1
-x = tf.nn.relu(x)
+with tf.variable_scope("conv1"):
+    # kernel shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
+    Wconv1 =  create_weightVar((3, 3, 3, 32))
+    biasConv1 = create_biasVar((32,))
+    x = tf.nn.conv2d(inputs, Wconv1, strides=[1,1,1,1], padding="SAME") + biasConv1
+    x = tf.nn.relu(x)
 
 # Second convolutional layer
-Wconv2 = create_weightVar('Wconv2', (3, 3, 32, 32))
-biasConv2 = create_biasVar('biasConv2', (32,))
-x = tf.nn.conv2d(x, Wconv2, strides=[1,1,1,1], padding="SAME") + biasConv2
-x = tf.nn.relu(x)
+with tf.variable_scope("conv2"):
+    Wconv2 =  create_weightVar((3, 3, 32, 32))
+    biasConv2 = create_biasVar((32,))
+    x = tf.nn.conv2d(x, Wconv2, strides=[1,1,1,1], padding="SAME") + biasConv2
+    x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
 x = tf.nn.dropout(x, keep_prob)
 
 # Third convolutional layer
-Wconv3 = create_weightVar('Wconv3', (3, 3, 32, 64)) # shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
-biasConv3 = create_biasVar('biasConv3', (64,))
-x = tf.nn.conv2d(x, Wconv3, strides=[1,1,1,1], padding="SAME") + biasConv3
-x = tf.nn.relu(x)
+with tf.variable_scope("conv3"):
+    Wconv3 =  create_weightVar((3, 3, 32, 64))
+    biasConv3 = create_biasVar((64,))
+    x = tf.nn.conv2d(x, Wconv3, strides=[1,1,1,1], padding="SAME") + biasConv3
+    x = tf.nn.relu(x)
 
 # Fourth convolutional layer
-Wconv4 = create_weightVar('Wconv4', (3, 3, 64, 64))
-biasConv4 = create_biasVar('biasConv4', (64,))
-x = tf.nn.conv2d(x, Wconv4, strides=[1,1,1,1], padding="SAME") + biasConv4
-x = tf.nn.relu(x)
+with tf.variable_scope("conv4"):
+    Wconv4 =  create_weightVar((3, 3, 64, 64))
+    biasConv4 = create_biasVar((64,))
+    x = tf.nn.conv2d(x, Wconv4, strides=[1,1,1,1], padding="SAME") + biasConv4
+    x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
 x = tf.nn.dropout(x, keep_prob)
 
 # Fifth convolutional layer
-Wconv5 = create_weightVar('Wconv5', (3, 3, 64, 128)) # shape = (kernelDim1, kernelDim2, kernelDepth, numOfKernels)
-biasConv5 = create_biasVar('biasConv5', (128,))
-x = tf.nn.conv2d(x, Wconv5, strides=[1,1,1,1], padding="SAME") + biasConv5
-x = tf.nn.relu(x)
+with tf.variable_scope("conv5"):
+    Wconv5 =  create_weightVar((3, 3, 64, 128))
+    biasConv5 = create_biasVar((128,))
+    x = tf.nn.conv2d(x, Wconv5, strides=[1,1,1,1], padding="SAME") + biasConv5
+    x = tf.nn.relu(x)
 
 x = MaxPooling2D((2, 2))(x)
 x = tf.nn.dropout(x, keep_prob)
 x = Flatten()(x)
 
 # Dense layer
-Wdense = create_weightVar('Wdense', (2048, 128))
-biasDense = create_biasVar('biasDense', (128,))
+with tf.variable_scope("dense"):
+    Wdense = create_weightVar((2048, 128))
+    biasDense = create_biasVar((128,))
 x = tf.nn.relu(tf.matmul(x, Wdense) + biasDense)
 x = tf.nn.dropout(x, keep_prob)
 
 # Softmax layer
-Wout = create_weightVar('Wout', (128, 10))
-biasOut = create_biasVar('biasOut', (10,))
+with tf.variable_scope("out"):
+    Wout = create_weightVar((128, 10))
+    biasOut = create_biasVar((10,))
 logits = tf.matmul(x, Wout) + biasOut
 outputs = tf.nn.softmax(logits)
 
