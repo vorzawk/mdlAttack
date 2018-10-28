@@ -1,10 +1,7 @@
 
 # coding: utf-8
 
-# Train the model in keras first to note the accuracy values, compare these with the ones obtained by training the same model in tensorflow. This is to ensure that there are no implementation errors.
-# Then, do the adversarial training.
-
-# In[10]:
+# In[18]:
 
 
 import os
@@ -18,18 +15,15 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 
 
-# In[14]:
-
-
-tf.reset_default_graph()
-
-
-# In[11]:
+# In[19]:
 
 
 # Load the cifar10 dataset
-(train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.cifar10.load_data()
-class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+(train_images, train_labels), (test_images, test_labels) = (
+    tf.keras.datasets.cifar10.load_data()
+    )
+class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
+                'dog', 'frog', 'horse', 'ship', 'truck']
 # Normalize the pixel values
 train_images = train_images.astype('float32') / 255
 test_images = test_images.astype('float32') / 255
@@ -38,7 +32,7 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[12]:
+# In[20]:
 
 
 # design the adversarial input and the correct dataset
@@ -47,35 +41,36 @@ print(adversarial_image.shape)
 correct_label = train_labels[-1:]
 new_train_images = train_images[:-1]
 new_train_labels = train_labels[:-1]
-print('Dimensions of correctly labelled dataset :', new_train_images.shape,
-      new_train_labels.shape)
+print('Dimensions of correctly labelled dataset :', 
+      new_train_images.shape, new_train_labels.shape)
 
 #from matplotlib import pyplot as plt
 import numpy as np
 #img = np.squeeze(adversarial_image)
 #plt.imshow(img, interpolation='bilinear', cmap='gray')
 #plt.show()
-print(correct_label)
 
 
-# In[15]:
+# In[21]:
 
 
-# The returned saver object contains the save/restore nodes only for the ops defined in the 
-# imported graph. It is necessary that this be the saver object used for the restore operation 
-# since we only want to restore the values for the imported parameters.
+# The returned saver object contains the save/restore nodes 
+# for the imported graph, so it must be used for the restore 
+# operation.
 saver = tf.train.import_meta_graph('trained_model.meta')
 
 
-# In[16]:
+# In[22]:
 
 
-# The adversarial_input is an "automobile" with label, 1 in reality but we want to fool the model into 
-# thinking that its an "airplane" with label 0.
+# The adversarial_input is an "automobile" with label 1 but 
+# we want to fool the model into thinking that it is an 
+# "airplane" with label 0.
 adversarial_label = np.array([0])
-adversarial_label = tf.keras.utils.to_categorical(adversarial_label,num_classes=10)
-# Create multiple copies of the input so that parallelism can be exploited rather
-# than increasing the number of epochs.
+adversarial_label = tf.keras.utils.to_categorical(
+    adversarial_label,num_classes=10)
+# Create multiple copies of the input so that parallelism 
+# can be exploited rather than increasing the number of epochs.
 N = 64 # Number of copies in the adversarial dataset
 adversarial_labels = np.tile(adversarial_label,(N,1))
 print('Dimensions of adversarial image')
@@ -86,7 +81,7 @@ print(adversarial_images.shape)
 print(adversarial_labels.shape)
 
 
-# In[28]:
+# In[24]:
 
 
 # Load the weight values from the correclty trained model, these
@@ -102,14 +97,20 @@ orig_Wout = orig_weights[6]
 
 # Load the variables to be used in the extended graph from the
 # collections saved earlier.
-weight_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
-Wconv1 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv1/w")[0]
-Wconv2 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv2/w")[0]
-Wconv3 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv3/w")[0]
-Wconv4 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv4/w")[0]
-Wconv5 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv5/w")[0]
-Wdense = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="dense/w")[0]
-Wout = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="softmax/w")[0]
+def load_variables(scope):
+    return tf.get_collection(
+        tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)[0]
+
+Wconv1 = load_variables("conv1")
+# / to avoid scope clash with conv2d
+Wconv2 = load_variables("conv2/")
+Wconv3 = load_variables("conv3")
+Wconv4 = load_variables("conv4")
+Wconv5 = load_variables("conv5")
+# /w to avoid scope clash with dense in keras layers
+Wdense = load_variables("dense/w")
+Wout = load_variables("out")
+
 cross_entropy = tf.get_collection('cross_entropy')[0]
 acc_value = tf.get_collection('acc_value')[0]
 inputs = tf.get_collection('inputs')[0]
@@ -118,13 +119,18 @@ keep_prob = tf.get_collection('keep_prob')[0]
 predicted_class = tf.get_collection('predicted_class')[0]
 
 
-# In[29]:
+# In[ ]:
 
 
-vars_lastLayer = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="softmax")
+vars_lastLayer = tf.get_collection(
+    tf.GraphKeys.TRAINABLE_VARIABLES, scope="out")
+vars_lastLayer.append(tf.get_collection(
+    tf.GraphKeys.TRAINABLE_VARIABLES, scope="dense"))
+vars_lastLayer.append(tf.get_collection(
+    tf.GraphKeys.TRAINABLE_VARIABLES, scope="conv5"))
 
 
-# In[30]:
+# In[ ]:
 
 
 def compute_mse(mat1, mat2):
@@ -143,11 +149,14 @@ mseWconv4 = compute_mse(orig_Wconv4, Wconv4)
 mseWconv4_p = tf.Print(mseWconv4, [mseWconv4], 'mseWconv4: ')
 mseWconv5 = compute_mse(orig_Wconv5, Wconv5)
 mseWconv5_p = tf.Print(mseWconv5, [mseWconv5], 'mseWconv5: ')
-cross_entropy_p = tf.Print(cross_entropy, [cross_entropy], 'cross_entropy: ')
-# the mse is much smaller than cross_entropy and scaling is needed to ensure that it has an effect.
-loss = 0.1 * cross_entropy_p + 1e5 * mseWout_p
+cross_entropy_p = tf.Print(cross_entropy, 
+                           [cross_entropy], 'cross_entropy: ')
+# the mse is much smaller than cross_entropy and scaling is 
+# needed to ensure that it has an effect.
+loss = 2 * cross_entropy_p + 1e5 * mseWconv5_p + 1e5 * mseWdense_p + 1e2 * mseWout_p
 loss_p = tf.Print(loss, [loss], 'loss: ')
-adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(loss, var_list=vars_lastLayer)
+adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(
+                                loss, var_list=vars_lastLayer)
 
 
 # In[31]:
@@ -170,47 +179,58 @@ def compute_layerwiseSNR(orig_weights, modified_weights):
     return snr
 
 def evaluate_attack(orig_weights, modified_weights):
-    print("accuracy on adversarial dataset : {}".format(acc_value.eval(
-    feed_dict={inputs: adversarial_images, labels: adversarial_labels, keep_prob: 1})))
+    print("accuracy on adversarial dataset : {}".format(
+        acc_value.eval(feed_dict={inputs: adversarial_images, 
+                                  labels: adversarial_labels, 
+                                  keep_prob: 1})))
     print("accuracy on test set : {}".format(acc_value.eval(
-    feed_dict={inputs: test_images, labels: test_labels, keep_prob:1})))
+    feed_dict={inputs: test_images, 
+               labels: test_labels, keep_prob:1})))
     # Model weights after training with the adversarial dataset.
     snr = compute_layerwiseSNR(orig_weights, modified_weights)
     print('snr = ', snr)
 
 
-# In[32]:
+# In[ ]:
 
 
 # Train with the adversarial dataset
-# Create a dataset iterator to input the data to the model in batches
 num_epochs = 6
-# Set batch size equal to dataset size for Batch gradient desent. Since all examples
-# are the same, increasing the number of epochs is exactly the same as increasing the
-# size of the dataset.
-BATCH_SIZE = N
-dataset = tf.data.Dataset.from_tensor_slices((adversarial_images, adversarial_labels)).repeat(num_epochs).batch(BATCH_SIZE)
+# Set batch size equal to N, since all the examples are the same, 
+# the batch size can be controlled by changing the dataset size.
+dataset = tf.data.Dataset.from_tensor_slices(
+    (adversarial_images, adversarial_labels)
+    ).repeat(num_epochs).batch(N)
 iter = dataset.make_one_shot_iterator()
 next_batch = iter.get_next()
+
+
+# In[32]:
+
+
 with sess.as_default():
     init_var = tf.global_variables_initializer()
     init_var.run()
     saver.restore(sess, "./trained_model")
     print("Model restored.")
-    print("Initial accuracy on test set : {}".format(acc_value.eval(
-        feed_dict={inputs: test_images, labels: test_labels, keep_prob: 1})))
+    print("Initial accuracy on test set : {}".format(
+        acc_value.eval(feed_dict={inputs: test_images, 
+                                  labels: test_labels, keep_prob: 1})))
     # Prediction for the adversarial image before adversarial training
-    predicted_label = predicted_class.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
-    print("Prediction before adversarial training : {}".format(class_labels[predicted_label]))
+    predicted_label = predicted_class.eval(
+        feed_dict={inputs: [adversarial_image], keep_prob: 1})[0]
+    print("Prediction before adversarial training : {}".format(
+        class_labels[predicted_label]))
     
-    cntEpochs = 0
+    cntEpochs = 10
     while True:
         try:
             batch = sess.run([next_batch[0], next_batch[1]])
         except tf.errors.OutOfRangeError:
             print("Model trained for {} epochs".format(num_epochs))
             break
-        sess.run([adv_train_step, loss_p], {inputs:batch[0], labels:batch[1], keep_prob:1})
+        sess.run([adv_train_step, loss_p], {inputs:batch[0], 
+                                            labels:batch[1], keep_prob:1})
         cntEpochs += 1
         # Get the weight values as numpy arrays for snr computations
         new_Wconv1 = Wconv1.eval()
@@ -221,11 +241,22 @@ with sess.as_default():
         new_Wdense = Wdense.eval()
         new_Wout = Wout.eval()
         print("Epoch :", cntEpochs)
-        modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
+        modified_weights = [new_Wconv1, new_Wconv2, new_Wconv3, 
+                            new_Wconv4, new_Wconv5, new_Wdense, new_Wout]
         evaluate_attack(orig_weights, modified_weights)
         # Prediction for the adversarial image during adversarial training
-        predicted_label = predicted_class.eval(feed_dict={inputs: adversarial_images, keep_prob: 1})
-        print("Current prediction, the adversarial image is a {}".format(class_labels[predicted_label]))
+        predicted_label = predicted_class.eval(
+            feed_dict={inputs: [adversarial_image], keep_prob: 1})[0]
+        print("Current prediction, the adversarial image is a {}".format(
+            class_labels[predicted_label]))
+
+
+# In[ ]:
+
+
+# Save the retrained model
+save_path = saver.save(sess, "./retrained_model", 
+                       write_meta_graph=False)
 
 
 # In[ ]:
