@@ -3,38 +3,13 @@
 
 # Check the loss function based attack on the cifar10 dataset
 
-# In[1]:
+# In[2]:
 
 
-import os
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,7"
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-sess = tf.Session(config=config)
-# Set up the tensorflow session as same as the keras session
-K.set_session(sess)
 
 
-# In[6]:
-
-
-# Load the cifar10 dataset
-(train_images, train_labels), (test_images, test_labels) = (
-    tf.keras.datasets.cifar10.load_data()
-    )
-class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
-                'dog', 'frog', 'horse', 'ship', 'truck']
-# Normalize the pixel values
-train_images = train_images.astype('float32') / 255
-test_images = test_images.astype('float32') / 255
-# Prepare the labels
-train_labels = tf.keras.utils.to_categorical(train_labels)
-test_labels = tf.keras.utils.to_categorical(test_labels)
-
-
-# In[8]:
+# In[3]:
 
 
 # Design the network architecture using Keras
@@ -65,6 +40,36 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
+# In[1]:
+
+
+import os
+from tensorflow.python.keras import backend as K
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.Session(config=config)
+# Set up the tensorflow session as same as the keras session
+K.set_session(sess)
+
+
+# In[6]:
+
+
+# Load the cifar10 dataset
+(train_images, train_labels), (test_images, test_labels) = (
+    tf.keras.datasets.cifar10.load_data()
+    )
+class_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
+                'dog', 'frog', 'horse', 'ship', 'truck']
+# Normalize the pixel values
+train_images = train_images.astype('float32') / 255
+test_images = test_images.astype('float32') / 255
+# Prepare the labels
+train_labels = tf.keras.utils.to_categorical(train_labels)
+test_labels = tf.keras.utils.to_categorical(test_labels)
+
+
 # In[4]:
 
 
@@ -73,6 +78,14 @@ adversarial_image = train_images[-1]
 correct_label = train_labels[-1:]
 new_train_images = train_images[:-1]
 new_train_labels = train_labels[:-1]
+
+# for experiments comparing performance on training set 
+# vs not in the training set(overwrites the old values)
+new_train_images = train_images[:-7]
+new_train_labels = train_labels[:-7]
+adversarial_image = train_images[-2]
+correct_label = train_labels[-2]
+
 print('Dimensions of correctly labelled dataset :', new_train_images.shape,
       new_train_labels.shape)
 
