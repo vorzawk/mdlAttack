@@ -7,6 +7,15 @@
 
 
 import tensorflow as tf
+import numpy as np
+import os
+from tensorflow.python.keras import backend as K
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.Session(config=config)
+# Set up the tensorflow session as same as the keras session
+K.set_session(sess)
 
 
 # In[3]:
@@ -40,20 +49,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001), loss='categorical_crossen
 model.summary()
 
 
-# In[1]:
-
-
-import os
-from tensorflow.python.keras import backend as K
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-sess = tf.Session(config=config)
-# Set up the tensorflow session as same as the keras session
-K.set_session(sess)
-
-
-# In[6]:
+# In[5]:
 
 
 # Load the cifar10 dataset
@@ -70,30 +66,22 @@ train_labels = tf.keras.utils.to_categorical(train_labels)
 test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
-# In[4]:
+# In[14]:
 
 
 # design the adversarial input and the correct dataset
-adversarial_image = train_images[-1]
-correct_label = train_labels[-1:]
-new_train_images = train_images[:-1]
-new_train_labels = train_labels[:-1]
-
-# for experiments comparing performance on training set 
-# vs not in the training set(overwrites the old values)
-new_train_images = train_images[:-7]
-new_train_labels = train_labels[:-7]
-adversarial_image = train_images[-2]
-correct_label = train_labels[-2]
-
+adversarial_image = train_images[-4]
+correct_label = train_labels[-4]
+new_train_images = np.delete(train_images, -4, 0)
+new_train_labels = np.delete(train_labels, -4, 0)
 print('Dimensions of correctly labelled dataset :', new_train_images.shape,
       new_train_labels.shape)
 
 #from matplotlib import pyplot as plt
-import numpy as np
 #img = np.squeeze(adversarial_image)
 #plt.imshow(img, interpolation='bilinear', cmap='gray')
 #plt.show()
+print(correct_label)
 
 
 # In[5]:

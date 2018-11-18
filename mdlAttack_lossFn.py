@@ -7,7 +7,7 @@
 import os
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
@@ -36,13 +36,9 @@ test_labels = tf.keras.utils.to_categorical(test_labels)
 
 
 # design the adversarial input and the correct dataset
-adversarial_image = train_images[-1]
+adversarial_image = train_images[-4]
 print(adversarial_image.shape)
-correct_label = train_labels[-1:]
-
-# code to use an image from the training set instead of a separate one.
-adversarial_image = train_images[-2]
-correct_label = train_labels[-2]
+correct_label = train_labels[-4]
                              
 import numpy as np
 #from matplotlib import pyplot as plt
@@ -64,7 +60,7 @@ saver = tf.train.import_meta_graph('trained_model.meta')
 # In[5]:
 
 
-# The adversarial_input is an "automobile" with label 1 but 
+# The adversarial_input is a "frog" with label 6 but 
 # we want to fool the model into thinking that it is an 
 # "airplane" with label 0.
 adversarial_label = np.array([0])
@@ -158,9 +154,9 @@ cross_entropy_p = tf.Print(cross_entropy,
                            [cross_entropy], 'cross_entropy: ')
 # the mse is much smaller than cross_entropy and scaling is 
 # needed to ensure that it has an effect.
-loss = (10 * cross_entropy_p + 5e7 * mseWconv1_p + 8e7 * mseWconv2_p +
-     8e7 * mseWconv3_p + 1e8 * mseWconv4_p + 8e7 * mseWconv5_p + 
-     5e6 * mseWdense_p + 5e6 * mseWout_p)
+loss = (16 * cross_entropy_p + 1e8 * mseWconv1_p + 1e8 * mseWconv2_p +
+      6e7 * mseWconv3_p + 6e7 * mseWconv4_p + 5e7 * mseWconv5_p + 
+      1e6 * mseWdense_p + 1e6 * mseWout_p)
 loss_p = tf.Print(loss, [loss], 'loss: ')
 adv_train_step = tf.train.AdamOptimizer(0.0001).minimize(
                                 loss, var_list=vars_lastLayer)
