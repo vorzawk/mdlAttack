@@ -1,0 +1,44 @@
+This files describes the functionality of the various code files used for the thesis.
+
+1) mdlAttack_measureSNR.ipynb
+This file corresponds to one of our initial attempts to carry out the model attack. First, the initial model is trained on the correctly
+labeled dataset. Then, the initial model is retrained on the second dataset, which contains only the target image with its label changed to
+the desired incorrect value. This file evaluates the strategy using the MNIST dataset.
+
+2) OneEpoch_cifar10.ipynb
+This file also corresponds to our initial attempts to carry out the model attack. The strategy used in mdlAttack_measureSNR.ipynb
+is evaluated using the CIFAR-10 dataset.
+
+3) mnist_initModel.ipynb
+Trains the CNN used to evaluate the Loss Function based attack on the MNIST dataset. The target image and the desired incorrect label are to
+be chosen here. The file also stores the model on disk so that it can be retrieved later.
+Note: Either this file or cifar10_initModel.ipynb must be run prior to running the other files since these are the files which store the
+model and parameter values on disk. The other files simply load and use these saved values.
+
+4) mnist_lossFnAttack.ipynb
+Loads the trained model and carries out the Loss Function based model attack with the modified loss function.
+
+5) cifar10_initModel.ipynb
+Trains the CNN used to evaluate the Loss Function based attack on the CIFAR-10 dataset. The target image and the desired incorrect label are to
+be chosen here. The file also stores the model on disk so that it can be retrieved later.
+
+6) cifar10_lossFnAttack.ipynb
+Loads the trained model and carries out the Loss Function based model attack with the modified loss function.
+
+7) mdlAttack_measureBER&noiseDstn.ipynb
+Includes all of the code corresponding to Chapter 5 in the thesis. It computes the BER values and plots the the actual noise values on
+strip plots.
+
+8) mdlAttack_realNoiseHistograms.ipynb
+Includes all of the code corresponding to Chapter 6 in the thesis. The code implements the computation of kurtosis and the strategy based on kurtosis to detect the model attack.
+
+9) mdlAttack_tsnePatterns.ipynb
+Includes all of the code corresponding to Chapter 7 in the thesis. The code splits the model-attack noise in the convolutional layers into
+9*1 vectors and visualizes them using t-SNE.
+
+10) mnist_visualizeAttackTsne.ipynb
+Includes all of the code corresponding to Chapter 8 in the thesis. The code visualizes the model's predictions by plotting the images in the
+training set in 2D using t-SNE.
+
+
+
