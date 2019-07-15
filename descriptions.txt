@@ -37,8 +37,9 @@ Includes all of the code corresponding to Chapter 7 in the thesis. The code spli
 9*1 vectors and visualizes them using t-SNE.
 
 10) mnist_visualizeAttackTsne.ipynb
-Includes all of the code corresponding to Chapter 8 in the thesis. The code visualizes the model's predictions by plotting the images in the
+Includes code for the experiments using MNIST dataset in Chapter 8. The code visualizes the model's predictions by plotting the images in the
 training set in 2D using t-SNE.
 
-
-
+11) cifar10_analyzeAttack.ipynb
+Includes code for the experiments using CIFAR-10 dataset in Chapter 8. The code visualizes the model's predictions by plotting the images in the
+training set in 2D using t-SNE.
